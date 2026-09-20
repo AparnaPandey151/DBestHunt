@@ -1,6 +1,8 @@
 package DBestHunt.Backend.service;
 
+import DBestHunt.Backend.entity.PriceHistory;
 import DBestHunt.Backend.entity.Product;
+import DBestHunt.Backend.repository.PriceHistoryRepository;
 import DBestHunt.Backend.repository.ProductRepository;
 import org.springframework.stereotype.Service;
 
@@ -13,12 +15,16 @@ import java.util.Optional;
 public class ProductService {
 
     private final ProductRepository productRepository;
+    private final PriceHistoryRepository priceHistoryRepository;
     private final FirecrawlService firecrawlService;
 
     public ProductService(
             ProductRepository productRepository,
+            PriceHistoryRepository priceHistoryRepository,
             FirecrawlService firecrawlService) {
+
         this.productRepository = productRepository;
+        this.priceHistoryRepository = priceHistoryRepository;
         this.firecrawlService = firecrawlService;
     }
 
@@ -62,5 +68,23 @@ public class ProductService {
         product.setUserId(userId);
 
         return productRepository.save(product);
+    }
+
+    public PriceHistory savePriceHistory(
+            Product product,
+            BigDecimal price,
+            String currency) {
+
+        PriceHistory history = new PriceHistory();
+        history.setProduct(product);
+        history.setPrice(price);
+        history.setCurrency(currency);
+
+        return priceHistoryRepository.save(history);
+    }
+
+    public List<PriceHistory> getPriceHistory(Long productId) {
+        return priceHistoryRepository
+                .findByProductIdOrderByRecordedAtAsc(productId);
     }
 }

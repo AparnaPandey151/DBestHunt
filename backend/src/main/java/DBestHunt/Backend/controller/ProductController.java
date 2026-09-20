@@ -34,6 +34,14 @@ public class ProductController {
         return productService.saveProduct(product);
     }
 
+    @PostMapping("/import")
+    public Product importProduct(
+            @RequestParam String url,
+            @RequestParam Long userId) {
+
+        return productService.importProduct(url, userId);
+    }
+
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> deleteProduct(@PathVariable Long id) {
         productService.deleteProduct(id);

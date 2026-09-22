@@ -15,16 +15,19 @@ public class PriceCheckService {
     private final ProductRepository productRepository;
     private final ProductService productService;
     private final FirecrawlService firecrawlService;
+    private final NotificationService notificationService;
 
     public PriceCheckService(
-            ProductRepository productRepository,
-            ProductService productService,
-            FirecrawlService firecrawlService) {
+        ProductRepository productRepository,
+        ProductService productService,
+        FirecrawlService firecrawlService,
+        NotificationService notificationService) {
 
-        this.productRepository = productRepository;
-        this.productService = productService;
-        this.firecrawlService = firecrawlService;
-    }
+    this.productRepository = productRepository;
+    this.productService = productService;
+    this.firecrawlService = firecrawlService;
+    this.notificationService = notificationService;
+}
 
     @SuppressWarnings("unchecked")
     public Product checkProductPrice(Product product) {
@@ -49,16 +52,23 @@ public class PriceCheckService {
         boolean priceDropped = newPrice.compareTo(oldPrice) < 0;
 
         if (priceDropped) {
-            System.out.println(
-                    "PRICE DROP: " +
-                    product.getName() +
-                    " | " +
-                    oldPrice +
-                    " -> " +
-                    newPrice
-            );
-        }
+    System.out.println(
+            "PRICE DROP: " +
+            product.getName() +
+            " | " +
+            oldPrice +
+            " -> " +
+            newPrice
+    );
 
+    notificationService.sendPriceDropNotification(
+            product.getName(),
+            product.getUrl(),
+            currency,
+            oldPrice.toString(),
+            newPrice.toString()
+    );
+}
         productService.savePriceHistory(
                 product,
                 newPrice,

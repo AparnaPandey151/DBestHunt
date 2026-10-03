@@ -18,16 +18,16 @@ public class PriceCheckService {
     private final NotificationService notificationService;
 
     public PriceCheckService(
-        ProductRepository productRepository,
-        ProductService productService,
-        FirecrawlService firecrawlService,
-        NotificationService notificationService) {
+            ProductRepository productRepository,
+            ProductService productService,
+            FirecrawlService firecrawlService,
+            NotificationService notificationService) {
 
-    this.productRepository = productRepository;
-    this.productService = productService;
-    this.firecrawlService = firecrawlService;
-    this.notificationService = notificationService;
-}
+        this.productRepository = productRepository;
+        this.productService = productService;
+        this.firecrawlService = firecrawlService;
+        this.notificationService = notificationService;
+    }
 
     @SuppressWarnings("unchecked")
     public Product checkProductPrice(Product product) {
@@ -49,31 +49,38 @@ public class PriceCheckService {
 
         String currency = (String) json.get("currency");
 
-        boolean priceDropped = newPrice.compareTo(oldPrice) < 0;
+        int comparison = newPrice.compareTo(oldPrice);
 
-        if (priceDropped) {
-    System.out.println(
-            "PRICE DROP: " +
-            product.getName() +
-            " | " +
-            oldPrice +
-            " -> " +
-            newPrice
-    );
+        // Only save a new history record when the price changes
+        if (comparison != 0) {
 
-    notificationService.sendPriceDropNotification(
-            product.getName(),
-            product.getUrl(),
-            currency,
-            oldPrice.toString(),
-            newPrice.toString()
-    );
-}
-        productService.savePriceHistory(
-                product,
-                newPrice,
-                currency
-        );
+            productService.savePriceHistory(
+                    product,
+                    newPrice,
+                    currency
+            );
+
+            // Price dropped
+            if (comparison < 0) {
+
+                System.out.println(
+                        "PRICE DROP: " +
+                        product.getName() +
+                        " | " +
+                        oldPrice +
+                        " -> " +
+                        newPrice
+                );
+
+                notificationService.sendPriceDropNotification(
+                        product.getName(),
+                        product.getUrl(),
+                        currency,
+                        oldPrice.toString(),
+                        newPrice.toString()
+                );
+            }
+        }
 
         product.setCurrentPrice(newPrice);
         product.setCurrency(currency);

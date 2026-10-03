@@ -5,6 +5,7 @@ import DBestHunt.Backend.entity.Product;
 import DBestHunt.Backend.repository.PriceHistoryRepository;
 import DBestHunt.Backend.repository.ProductRepository;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.util.List;
@@ -40,7 +41,13 @@ public class ProductService {
         return productRepository.save(product);
     }
 
+    @Transactional
     public void deleteProduct(Long id) {
+
+        // Delete price history first
+        priceHistoryRepository.deleteByProductId(id);
+
+        // Then delete the product
         productRepository.deleteById(id);
     }
 
@@ -67,7 +74,16 @@ public class ProductService {
         product.setImageUrl((String) json.get("main_image_url"));
         product.setUserId(userId);
 
-        return productRepository.save(product);
+        Product savedProduct = productRepository.save(product);
+
+        // Save the initial price in price history
+        savePriceHistory(
+                savedProduct,
+                savedProduct.getCurrentPrice(),
+                savedProduct.getCurrency()
+        );
+
+        return savedProduct;
     }
 
     public PriceHistory savePriceHistory(
@@ -76,6 +92,7 @@ public class ProductService {
             String currency) {
 
         PriceHistory history = new PriceHistory();
+
         history.setProduct(product);
         history.setPrice(price);
         history.setCurrency(currency);

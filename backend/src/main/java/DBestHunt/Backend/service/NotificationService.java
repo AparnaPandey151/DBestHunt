@@ -13,16 +13,13 @@ public class NotificationService {
     private final RestClient restClient;
     private final String apiKey;
     private final String fromEmail;
-    private final String toEmail;
 
     public NotificationService(
             @Value("${resend.api-key}") String apiKey,
-            @Value("${resend.from-email}") String fromEmail,
-            @Value("${resend.to-email}") String toEmail) {
+            @Value("${resend.from-email}") String fromEmail) {
 
         this.apiKey = apiKey;
         this.fromEmail = fromEmail;
-        this.toEmail = toEmail;
 
         this.restClient = RestClient.builder()
                 .baseUrl("https://api.resend.com")
@@ -30,6 +27,7 @@ public class NotificationService {
     }
 
     public void sendPriceDropNotification(
+            String recipientEmail,
             String productName,
             String productUrl,
             String currency,
@@ -57,9 +55,10 @@ public class NotificationService {
 
         Map<String, Object> requestBody = Map.of(
                 "from", fromEmail,
-                "to", new String[] { toEmail },
+                "to", new String[]{recipientEmail},
                 "subject", subject,
-                "html", html);
+                "html", html
+        );
 
         restClient.post()
                 .uri("/emails")

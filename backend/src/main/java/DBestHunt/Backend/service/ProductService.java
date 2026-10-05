@@ -2,6 +2,7 @@ package DBestHunt.Backend.service;
 
 import DBestHunt.Backend.entity.PriceHistory;
 import DBestHunt.Backend.entity.Product;
+import DBestHunt.Backend.repository.PriceCheckRepository;
 import DBestHunt.Backend.repository.PriceHistoryRepository;
 import DBestHunt.Backend.repository.ProductRepository;
 import org.springframework.stereotype.Service;
@@ -17,15 +18,18 @@ public class ProductService {
 
     private final ProductRepository productRepository;
     private final PriceHistoryRepository priceHistoryRepository;
+    private final PriceCheckRepository priceCheckRepository;
     private final FirecrawlService firecrawlService;
 
     public ProductService(
             ProductRepository productRepository,
             PriceHistoryRepository priceHistoryRepository,
+            PriceCheckRepository priceCheckRepository,
             FirecrawlService firecrawlService) {
 
         this.productRepository = productRepository;
         this.priceHistoryRepository = priceHistoryRepository;
+        this.priceCheckRepository = priceCheckRepository;
         this.firecrawlService = firecrawlService;
     }
 
@@ -37,6 +41,14 @@ public class ProductService {
         return productRepository.findById(id);
     }
 
+    public Optional<Product> getProductByIdAndUser(
+            Long productId,
+            Long userId) {
+
+        return productRepository.findById(productId)
+                .filter(product -> product.getUserId().equals(userId));
+    }
+
     public Product saveProduct(Product product) {
         return productRepository.save(product);
     }
@@ -44,18 +56,36 @@ public class ProductService {
     @Transactional
     public void deleteProduct(Long id) {
 
-        // Delete price history first
+        // Delete price checks first
+        priceCheckRepository.deleteByProductId(id);
+
+        // Delete price history
         priceHistoryRepository.deleteByProductId(id);
 
-        // Then delete the product
+        // Delete the product
         productRepository.deleteById(id);
     }
 
+    @Transactional
+    public void deleteProductForUser(
+            Long productId,
+            Long userId) {
+
+        Product product = getProductByIdAndUser(productId, userId)
+                .orElseThrow(() ->
+                        new RuntimeException("Product not found"));
+
+        deleteProduct(product.getId());
+    }
+
     @SuppressWarnings("unchecked")
-    public Product importProduct(String productUrl, Long userId) {
+    public Product importProduct(
+            String productUrl,
+            Long userId) {
 
         Map<String, Object> response =
-                (Map<String, Object>) firecrawlService.scrapeProduct(productUrl);
+                (Map<String, Object>)
+                        firecrawlService.scrapeProduct(productUrl);
 
         Map<String, Object> data =
                 (Map<String, Object>) response.get("data");
@@ -65,23 +95,34 @@ public class ProductService {
 
         Product product = new Product();
 
-        product.setUrl((String) json.get("url"));
-        product.setName((String) json.get("name"));
+        product.setUrl(
+                (String) json.get("url"));
+
+        product.setName(
+                (String) json.get("name"));
+
         product.setCurrentPrice(
-                new BigDecimal(json.get("price").toString())
-        );
-        product.setCurrency((String) json.get("currency"));
-        product.setImageUrl((String) json.get("main_image_url"));
+                new BigDecimal(
+                        json.get("price").toString()));
+
+        product.setCurrency(
+                (String) json.get("currency"));
+
+        product.setImageUrl(
+                (String) json.get("main_image_url"));
+
         product.setUserId(userId);
 
-        Product savedProduct = productRepository.save(product);
+        Product savedProduct =
+                productRepository.save(product);
 
-        // Save the initial price in price history
+        /*
+         * The initial price is part of the price history.
+         */
         savePriceHistory(
                 savedProduct,
                 savedProduct.getCurrentPrice(),
-                savedProduct.getCurrency()
-        );
+                savedProduct.getCurrency());
 
         return savedProduct;
     }
@@ -91,17 +132,39 @@ public class ProductService {
             BigDecimal price,
             String currency) {
 
-        PriceHistory history = new PriceHistory();
+        /*
+         * Do not create another history entry
+         * if the latest recorded price is the same.
+         */
+        List<PriceHistory> history =
+                priceHistoryRepository
+                        .findByProductIdOrderByRecordedAtAsc(
+                                product.getId());
 
-        history.setProduct(product);
-        history.setPrice(price);
-        history.setCurrency(currency);
+        if (!history.isEmpty()) {
 
-        return priceHistoryRepository.save(history);
+            PriceHistory latest =
+                    history.get(history.size() - 1);
+
+            if (latest.getPrice().compareTo(price) == 0) {
+                return latest;
+            }
+        }
+
+        PriceHistory newHistory = new PriceHistory();
+
+        newHistory.setProduct(product);
+        newHistory.setPrice(price);
+        newHistory.setCurrency(currency);
+
+        return priceHistoryRepository.save(newHistory);
     }
 
-    public List<PriceHistory> getPriceHistory(Long productId) {
+    public List<PriceHistory> getPriceHistory(
+            Long productId) {
+
         return priceHistoryRepository
-                .findByProductIdOrderByRecordedAtAsc(productId);
+                .findByProductIdOrderByRecordedAtAsc(
+                        productId);
     }
 }

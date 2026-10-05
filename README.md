@@ -21,12 +21,10 @@ DBestHunt is a full-stack product price tracking application that allows users t
 ## Tech Stack
 
 ### Frontend
-
-* React
-* JavaScript
-* Vite
-* Tailwind CSS
-* Shadcn UI
+- React
+- JavaScript
+- Vite
+- CSS
 
 ### Backend
 
